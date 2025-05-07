@@ -7,13 +7,18 @@ function App() {
   const [error, setError] = useState(null)
   const [flashFrame, setFlashFrame] = useState(false)
   const [cardLibrary, setCardLibrary] = useState([])
-  const [toast, setToast] = useState(null)
+  const [notification, setNotification] = useState({ message: '', visible: false })
   const [isRequestInFlight, setIsRequestInFlight] = useState(false)
   const dingSound = useRef(new Audio('/ding.wav'))
 
   // Card frame dimensions (standard MTG card is 63mm x 88mm, using 2.5:3.5 ratio)
   const frameWidth = 250
   const frameHeight = 350
+
+  const showNotification = (message) => {
+    setNotification({ message, visible: true })
+    setTimeout(() => setNotification({ message: '', visible: false }), 2000)
+  }
 
   const captureFrame = useCallback(async () => {
     if (!webcamRef.current || isRequestInFlight) return
@@ -55,9 +60,8 @@ function App() {
         setFlashFrame(true)
         setTimeout(() => setFlashFrame(false), 500)
         
-        // Show toast
-        setToast(data.name)
-        setTimeout(() => setToast(null), 3000)
+        // Show notification
+        showNotification(`${data.name} added to library`)
         
         // Update library
         setCardLibrary(prevLibrary => {
@@ -136,19 +140,20 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
+    <div className="flex flex-row h-screen p-4 gap-4 bg-gray-100">
+      {/* Left Column - Webcam */}
+      <div className="w-2/3 flex flex-col">
+        <div className="text-center mb-4">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">MTG Card Scanner</h1>
           <p className="text-gray-600">Position a Magic: The Gathering card within the frame</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="relative">
+        <div className="bg-white rounded-lg shadow-lg p-6 flex-grow flex flex-col">
+          <div className="relative flex-grow">
             <Webcam
               ref={webcamRef}
               audio={false}
-              className="w-full rounded-lg"
+              className="w-full h-full object-cover rounded-lg"
               screenshotFormat="image/jpeg"
             />
             <div
@@ -162,7 +167,7 @@ function App() {
             />
           </div>
 
-          <div className="mt-6 text-center space-x-4">
+          <div className="mt-6 text-center">
             <button
               onClick={() => setIsScanning(!isScanning)}
               className={`px-6 py-3 rounded-md text-white font-medium
@@ -172,42 +177,34 @@ function App() {
             >
               {isScanning ? 'Stop Scanning' : 'Start Scanning'}
             </button>
-            {cardLibrary.length > 0 && (
-              <button
-                onClick={exportToCSV}
-                className="px-6 py-3 rounded-md text-white font-medium bg-green-500 hover:bg-green-600"
-              >
-                Export to CSV
-              </button>
-            )}
           </div>
 
           {error && (
-            <div className="mt-6 p-4 bg-red-50 rounded-md">
+            <div className="mt-4 p-4 bg-red-50 rounded-md">
               <p className="text-red-600">{error}</p>
             </div>
           )}
+        </div>
+      </div>
 
-          {toast && (
-            <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg animate-fade-in">
-              {toast} added to library
-            </div>
-          )}
-
-          {cardLibrary.length > 0 && (
-            <div className="mt-8">
-              <h2 className="text-xl font-semibold mb-4">Card Library</h2>
-              <div className="overflow-x-auto">
+      {/* Right Column - Card Library */}
+      <div className="w-1/3 flex flex-col">
+        <div className="bg-white rounded-lg shadow-lg p-6 flex-grow flex flex-col">
+          <h2 className="text-xl font-semibold mb-4">Card Library</h2>
+          
+          {cardLibrary.length > 0 ? (
+            <>
+              <div className="flex-grow overflow-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Card Name
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Quantity
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -215,10 +212,10 @@ function App() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {cardLibrary.map((card) => (
                       <tr key={card.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                           {card.name}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => updateQuantity(card.id, -1)}
@@ -237,7 +234,7 @@ function App() {
                             </button>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => removeCard(card.id)}
                             className="text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 rounded-md p-1"
@@ -251,10 +248,30 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              
+              <div className="mt-4 pt-4 border-t">
+                <button
+                  onClick={exportToCSV}
+                  className="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  Export to CSV
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex-grow flex items-center justify-center text-gray-500">
+              No cards scanned yet
             </div>
           )}
         </div>
       </div>
+
+      {/* Notification */}
+      {notification.visible && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg animate-fade-in">
+          {notification.message}
+        </div>
+      )}
     </div>
   )
 }
