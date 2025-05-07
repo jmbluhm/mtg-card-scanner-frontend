@@ -8,6 +8,7 @@ function App() {
   const [flashFrame, setFlashFrame] = useState(false)
   const [cardLibrary, setCardLibrary] = useState([])
   const [toast, setToast] = useState(null)
+  const [isRequestInFlight, setIsRequestInFlight] = useState(false)
   const dingSound = useRef(new Audio('/ding.wav'))
 
   // Card frame dimensions (standard MTG card is 63mm x 88mm, using 2.5:3.5 ratio)
@@ -15,13 +16,21 @@ function App() {
   const frameHeight = 350
 
   const captureFrame = useCallback(async () => {
-    if (!webcamRef.current) return
+    if (!webcamRef.current || isRequestInFlight) return
 
-    const canvas = webcamRef.current.getCanvas()
-    if (!canvas) return
+    const video = webcamRef.current.video
+    if (!video) return
 
     try {
-      const base64String = canvas.toDataURL('image/jpeg').split(',')[1]
+      // Create downscaled canvas
+      const offscreen = document.createElement('canvas')
+      offscreen.width = 224
+      offscreen.height = 224
+      const ctx = offscreen.getContext('2d')
+      ctx.drawImage(video, 0, 0, 224, 224)
+      const base64String = offscreen.toDataURL('image/jpeg').split(',')[1]
+      
+      setIsRequestInFlight(true)
       
       const response = await fetch('https://mtg-embed-api.onrender.com/match', {
         method: 'POST',
@@ -32,7 +41,8 @@ function App() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to process image')
+        const errorText = await response.text()
+        throw new Error(`Server error: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
@@ -67,9 +77,13 @@ function App() {
         })
       }
     } catch (err) {
+      console.error('Scan error:', err)
       setError(err.message || 'An error occurred while processing the image')
+    } finally {
+      // Add cooldown period between scans
+      setTimeout(() => setIsRequestInFlight(false), 3000)
     }
-  }, [])
+  }, [isRequestInFlight])
 
   useEffect(() => {
     let interval
