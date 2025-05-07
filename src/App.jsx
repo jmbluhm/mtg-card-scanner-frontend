@@ -118,12 +118,11 @@ function App() {
   }
 
   const exportToCSV = () => {
-    const headers = ['Card Name', 'Card ID', 'Quantity']
+    const headers = ['Card Name', 'Quantity']
     const csvContent = [
       headers.join(','),
       ...cardLibrary.map(card => [
         `"${card.name}"`,
-        `"${card.id}"`,
         card.quantity
       ].join(','))
     ].join('\n')
